@@ -1,0 +1,31 @@
+#adminmenu .toplevel_page_wooccredo .wp-menu-image img {
+    width: 20px;
+    height: 20px;
+}
+
+.wooccredo table.form-table td input {
+    width: 400px;
+}
+.wooccredo table.wooccredo-table {
+    text-align: left;
+}
+.wooccredo table.wooccredo-table th,
+.wooccredo table.wooccredo-table td {
+    padding: 10px;
+}
+.wooccredo table.wooccredo-table th:first-of-type {
+    padding-left: 0;
+}
+.wooccredo .nav-tab-wrapper li {
+    margin-bottom: 0;
+}
+
+
+#poststuff #wooccredo_order_fields input,
+#poststuff #wooccredo_order_fields select {
+    width: 100%;
+}
+#poststuff #wooccredo_order_fields .inside {
+	margin: 0;
+	padding: 0;
+}
