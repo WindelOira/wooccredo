@@ -40,35 +40,41 @@ if( !class_exists('Wooccredo_Locations') ) :
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/DefaultLocationCode?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/DefaultLocationCode?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-
-            $default = json_decode($result, TRUE);
-            
-            return !isset($default['error']) ? $default['DefaultLocationCode'] : '';
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
         }
 
         /**
          * Get locations.
          * 
+         * @param   string  $code       Location code.
+         * @param   string  $fields     Taxonomy fields.
          * @return  array
          * @since   1.0.0
          */
-        public static function getLocations() {
-            $locations = get_terms([
+        public static function getLocations($code = '', $fields = 'all') {
+            $args = [
                 'taxonomy'      => self::$taxonomy,
-                'hide_empty'    => FALSE
-            ]);
+                'hide_empty'    => FALSE,
+                'fields'        => $fields
+            ];
+
+            if( !empty($code) ) : 
+                $args['meta_key'] = 'location_code';
+                $args['meta_value'] = $code;
+            endif;
+
+            $locations = get_terms($args);
 
             return $locations ? $locations : FALSE;
         }
@@ -76,8 +82,8 @@ if( !class_exists('Wooccredo_Locations') ) :
         /**
          * Update location
          * 
-         * @param   $name   Location name.
-         * @param   $code   Location code.
+         * @param   string  $name       Location name.
+         * @param   string  $code       Location code.
          * @since   1.0.0
          */
         public static function updateLocation($name, $code) {
@@ -95,10 +101,11 @@ if( !class_exists('Wooccredo_Locations') ) :
             endif;
 
             if( !is_wp_error($term) ) :
+                update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'location_code', $code);
             endif;
 
-            error_log($name .' synced');
+            Wooccredo::addLog('Location : '. $name .' synced');
         }
 
         /**
@@ -107,31 +114,24 @@ if( !class_exists('Wooccredo_Locations') ) :
          * @return  array
          * @since   1.0.0
          */
-        public static function getLocationsFromAPI() {
+        public static function getLocationsFromAPI($url = '') {
             $accessToken = Wooccredo::getToken();
 
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ICLocation?\$Select=LocationCode,LocationName,Inactive,BranchCode,DepartmentCode,DefaultDeliveryCode?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ICLocation?\$Select=LocationCode,LocationName,Inactive,BranchCode,DepartmentCode,DefaultDeliveryCode?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-            
-            if( $error ) :
-                return FALSE;
-            else :
-                $results = json_decode($result, TRUE);
-                return isset($results['error']) ? FALSE : $results;
-            endif;
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
         }
     }
 

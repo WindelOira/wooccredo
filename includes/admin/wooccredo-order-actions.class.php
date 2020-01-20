@@ -1,10 +1,13 @@
 <?php
+
 defined('ABSPATH') || exit;
 
 if( !class_exists('Wooccredo_Admin_Order_Actions') ) :
     class Wooccredo_Admin_Order_Actions {
         /**
          * Init.
+         * 
+         * @since   1.0.0
          */
         public static function init() {
             add_action('woocommerce_order_actions', __CLASS__ .'::orderActions');
@@ -14,8 +17,9 @@ if( !class_exists('Wooccredo_Admin_Order_Actions') ) :
         /**
          * Actions.
          * 
-         * @param $actions  Actions
-         * @return array
+         * @param   array   $actions        Actions
+         * @return  array
+         * @since   1.0.0
          */
         public static function orderActions($actions) {
             global $theorder;
@@ -28,7 +32,8 @@ if( !class_exists('Wooccredo_Admin_Order_Actions') ) :
         /**
          * Send invoice.
          * 
-         * @param $order    \WC_Order
+         * @param   object  $order      \WC_Order
+         * @since   1.0.0
          */
         public static function sendInvoice($order) {
             Wooccredo_Invoices::sendInvoice($order);

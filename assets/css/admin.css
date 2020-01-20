@@ -3,7 +3,7 @@
     height: 20px;
 }
 
-.wooccredo table.form-table td input {
+.wooccredo table.form-table td input:not([type="checkbox"]):not([type="radio"]) {
     width: 400px;
 }
 .wooccredo table.wooccredo-table {

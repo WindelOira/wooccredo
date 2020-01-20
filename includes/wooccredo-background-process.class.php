@@ -32,8 +32,11 @@ if( !class_exists('Wooccredo_Background_Process') ) :
             if( !$data )
                 return;
             
+            // Insert/update invoice.
+            if( $task == 'add_update_invoice' ) :
+                Wooccredo_Invoice::updateInvoice($data);
             // Insert/update customer.
-            if( $task == 'add_update_customer' ) :
+            elseif( $task == 'add_update_customer' ) :
                 $customerName = @$data['CustomerName'];
                 $customerCode = @$data['CustomerCode'];
 
@@ -109,6 +112,24 @@ if( !class_exists('Wooccredo_Background_Process') ) :
         }
 
         /**
+		 * Dispatch
+		 *
+		 * @access  public
+		 * @return  void
+         * @since   1.0.0
+		 */
+		public function dispatch() {
+            // Update sync time
+            update_option('wc_wooccredo_sync_started', strtotime('now'));
+
+			// Schedule the cron healthcheck.
+			$this->schedule_event();
+
+			// Perform remote post.
+			return parent::dispatch();
+		}
+
+        /**
          * Background process complete.
          * 
          * @since   1.0.0
@@ -116,7 +137,25 @@ if( !class_exists('Wooccredo_Background_Process') ) :
         protected function complete() {
             parent::complete();
 
-            error_log('Sync done...');
+            // Update invoices sync status
+            Wooccredo::updateSyncStatus('invoices', 'done');
+            // Update customers sync status
+            Wooccredo::updateSyncStatus('customers', 'done');
+            // Update sales persons sync status
+            Wooccredo::updateSyncStatus('sales_persons', 'done');
+            // Update invoices sync status
+            Wooccredo::updateSyncStatus('sales_areas', 'done');
+            // Update invoices sync status
+            Wooccredo::updateSyncStatus('locations', 'done');
+            // Update invoices sync status
+            Wooccredo::updateSyncStatus('branches', 'done');
+            // Update invoices sync status
+            Wooccredo::updateSyncStatus('departments', 'done');
+
+            // Delete unsynced
+            // Wooccredo::deleteUnsynced();
+
+            Wooccredo::addLog('Sync done...');
         }
     }
 endif;

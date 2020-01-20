@@ -1,7 +1,7 @@
 <?php
 defined('ABSPATH') || exit;
 
-$charges = self::$invoice['Charge'] ? self::$invoice['Charge'] : [];
+$charges = get_post_meta(self::$invoice->ID, 'charges', TRUE) ? get_post_meta(self::$invoice->ID, 'charges', TRUE) : [];
 ?>
 <br/>
 <table class="wp-list-table widefat fixed striped">

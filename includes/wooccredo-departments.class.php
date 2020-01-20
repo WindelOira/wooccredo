@@ -41,35 +41,41 @@ if( !class_exists('Wooccredo_Departments') ) :
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/DefaultDepartmentCode?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/DefaultDepartmentCode?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-
-            $default = json_decode($result, TRUE);
-            
-            return !isset($default['error']) ? $default['DefaultDepartmentCode'] : '';
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body']['DefaultDepartmentCode'], TRUE) : FALSE;
         }
 
         /**
          * Get departments
          * 
+         * @param   string  $code       Department code.
+         * @param   string  $fields     Taxonomy fields.
          * @return  array
          * @since   1.0.0
          */
-        public static function getDepartments() {
-            $departments = get_terms([
+        public static function getDepartments($code = '', $fields = 'all') {
+            $args = [
                 'taxonomy'      => self::$taxonomy,
-                'hide_empty'    => FALSE
-            ]);
+                'hide_empty'    => FALSE,
+                'fields'        => $fields
+            ];
+
+            if( !empty($code) ) : 
+                $args['meta_key'] = 'department_code';
+                $args['meta_value'] = $code;
+            endif;
+
+            $departments = get_terms($args);
 
             return $departments ? $departments : FALSE;
         }
@@ -77,8 +83,8 @@ if( !class_exists('Wooccredo_Departments') ) :
         /**
          * Update department.
          * 
-         * @param   $name   Department name.
-         * @param   $code   Department code.
+         * @param   string  $name       Department name.
+         * @param   string  $code       Department code.
          * @since   1.0.0
          */
         public static function updateDepartment($name, $code) {
@@ -96,10 +102,11 @@ if( !class_exists('Wooccredo_Departments') ) :
             endif;
 
             if( !is_wp_error($term) ) :
+                update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'department_code', $code);
             endif;
 
-            error_log($name .' synced');
+            Wooccredo::addLog('Department : '. $name .' synced');
         }
 
         /**
@@ -108,31 +115,24 @@ if( !class_exists('Wooccredo_Departments') ) :
          * @return  array
          * @since   1.0.0
          */
-        public static function getDepartmentsFromAPI() {
+        public static function getDepartmentsFromAPI($url = '') {
             $accessToken = Wooccredo::getToken();
 
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/CODepartment?\$Select=DepartmentCode,DepartmentName,Inactive?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/CODepartment?\$Select=DepartmentCode,DepartmentName,Inactive?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-            
-            if( $error ) :
-                return FALSE;
-            else :
-                $results = json_decode($result, TRUE);
-                return isset($results['error']) ? FALSE : $results;
-            endif;
+            return is_array($results) && !is_wp_error($results) ? json_decode($results['body'], TRUE) : FALSE;
         }
     }
 

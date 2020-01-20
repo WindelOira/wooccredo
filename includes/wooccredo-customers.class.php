@@ -32,14 +32,24 @@ if( !class_exists('Wooccredo_Customers') ) :
         /**
          * Get customers.
          * 
+         * @param   string  $code       Customer code.
+         * @param   string  $fields     Taxonomy fields.
          * @return  array
          * @since   1.0.0
          */
-        public static function getCustomers() {
-            $customers = get_terms([
+        public static function getCustomers($code = '', $fields = 'all') {
+            $args = [
                 'taxonomy'      => self::$taxonomy,
-                'hide_empty'    => FALSE
-            ]);
+                'hide_empty'    => FALSE,
+                'fields'        => $fields
+            ];
+
+            if( !empty($code) ) : 
+                $args['meta_key'] = 'customer_code';
+                $args['meta_value'] = $code;
+            endif;
+
+            $customers = get_terms($args);
 
             return $customers ? $customers : FALSE;
         }
@@ -47,8 +57,8 @@ if( !class_exists('Wooccredo_Customers') ) :
         /**
          * Update customer.
          * 
-         * @param   $name   Customer name.
-         * @param   $code   Customer code.
+         * @param   string  $name       Customer name.
+         * @param   string  $code       Customer code.
          * @since   1.0.0
          */
         public static function updateCustomer($name, $code) {
@@ -66,10 +76,11 @@ if( !class_exists('Wooccredo_Customers') ) :
             endif;
 
             if( !is_wp_error($term) ) :
+                update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'customer_code', $code);
             endif;
 
-            error_log($name .' synced');
+            Wooccredo::addLog('Customer : '. $name .' synced');
         }
 
         /**
@@ -77,31 +88,24 @@ if( !class_exists('Wooccredo_Customers') ) :
          * 
          * @since   1.0.0
          */
-        public static function getCustomersFromAPI() {
+        public static function getCustomersFromAPI($url = '') {
             $accessToken = Wooccredo::getToken();
 
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ARCustomerList?\$Select=CustomerCode,CustomerName?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ARCustomerList?\$Select=CustomerCode,CustomerName?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-
-            if( $error ) :
-                return FALSE;
-            else :
-                $results = json_decode($result, TRUE);
-                return isset($results['error']) ? FALSE : $results;
-            endif;
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
         }
     }
 

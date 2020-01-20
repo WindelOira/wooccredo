@@ -3,109 +3,111 @@ defined('ABSPATH') || exit;
 
 if( !class_exists('Wooccredo_Product') ) :
     class Wooccredo_Product {
-        protected static $token;
-        protected static $company;
-
         /**
          * Init.
+         * 
+         * @since   1.0.0
          */
         public static function init() {
-            self::$token = Wooccredo::getToken();
-            self::$company = Wooccredo::getOption('company');
         }
 
         /**
          * Get products.
          * 
-         * @return array
+         * @return  array
+         * @since   1.0.0
          */
         public static function getProducts() {
-            $curl = curl_init();
+            $accessToken = Wooccredo::getToken();
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". self::$company ."')/ICProductList?access_token=". self::$token['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
+            if( !isset($accessToken['access_token']) ) 
+                return FALSE;
 
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-            
-            return json_decode($result, TRUE);
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ICProductList?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
+
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
         }
 
         /**
          * Get product.
          * 
-         * @param integer   Product code.
-         * 
-         * @return array
+         * @param   integer     $productCode        Product code.
+         * @return  array
+         * @since   1.0.0
          */
         public static function getProduct($productCode) {
-            $curl = curl_init();
+            $accessToken = Wooccredo::getToken();
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". self::$company ."')/ICProduct('". $productCode ."')?access_token=". self::$token['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-
-            if( $error ) :
+            if( !isset($accessToken['access_token']) ) 
                 return FALSE;
-            else :
-                $result = json_decode($result, TRUE);
 
-                return isset($result['ProductCode']) ? $result : FALSE;
-            endif;
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ICProduct('". $productCode ."')?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $request = wp_remote_get($url, $args);
+            $results = json_decode($request['body'], TRUE);
+
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['error']) ) ? $results : FALSE;
         }
 
         /**
          * Create product.
          * 
-         * @param integer   Product ID.
-         * 
-         * @return
+         * @param   int     $productID      Product ID.
+         * @return  array
+         * @since   1.0.0
          */
         public static function createProduct($productID) {
-            $accredoProduct = [];
+            $accessToken = Wooccredo::getToken();
+
+            if( !isset($accessToken['access_token']) ) 
+                return FALSE;
+
             $product = wc_get_product($productID);
 
             if( !$product )
                 return FALSE;
 
-            $code = strtoupper(str_replace(' ', '', $product->get_name()));
-            $accredoProduct = self::getProduct($code);
-            // $accredoProduct = self::getProduct('1.8MWARDROBE');
+            $code = $product->get_sku() ? $product->get_sku() : strtoupper(str_replace(' ', '', $product->get_name()));
 
-            if( $accredoProduct ) :
+            if( $accredoProduct = self::getProduct($code) )
                 return $accredoProduct;
-            endif;
 
             $accredoProduct = [
                 'RecNo'                     => $product->get_id(),
                 'Name'                      => $product->get_name(),
-                'ProductCode'               => strtoupper(str_replace(' ', '', $product->get_name())),
-                'Description'               => $product->get_description(),
+                'ProductCode'               => $code,
+                'Description'               => $product->get_description() ? $product->get_description() : 'No description.',
                 'Weight'                    => floatval($product->get_weight()),
                 'AllowInactive'             => TRUE
             ];
 
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ICProduct?access_token=". $accessToken['access_token'];
             $curl = curl_init();
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". self::$company ."')/ICProduct?access_token=". self::$token['access_token']);
+            curl_setopt($curl, CURLOPT_URL, $url);
             curl_setopt($curl, CURLOPT_POST, 1);
             curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($accredoProduct));
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);       
             curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'OData-Version: 4.0',
-                'Accept: application/json;odata.metadata=minimal',
+                // 'OData-Version: 4.0',
+                'Accept: application/json;',
                 'Content-Type: application/json'
             ]);
 
@@ -118,12 +120,27 @@ if( !class_exists('Wooccredo_Product') ) :
             else :
                 $response = json_decode($result, TRUE);
 
-                if( $response['ProductCode'] ) :
-                    return self::getProduct($response['ProductCode']);
-                else :
-                    return FALSE;
-                endif;
+                return isset($response['ProductCode']) && $response['ProductCode'] ? self::getProduct($response['ProductCode']) : FALSE;
             endif;
+
+            // $args = [
+            //     'headers'       => [
+            //         'Authorization: Basic '. $accessToken['access_token'],
+            //         'Accept: application/json',
+            //         'Content-Type: application/json'
+            //     ],
+            //     'body'          => wc_json_encode($accredoProduct)
+            // ];
+            // $results = wp_remote_post($url, $args);
+
+            // if( !is_wp_error($results) && is_array($results) ) :
+            //     $result = json_decode($results['body'], TRUE);
+
+            //     return $result;
+            //     // return $result['ProductCode'] ? self::getProduct($result['ProductCode']) : FALSE;
+            // else :
+            //     return FALSE;
+            // endif;
         }
     }
 

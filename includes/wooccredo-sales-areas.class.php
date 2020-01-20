@@ -31,13 +31,24 @@ if( !class_exists('Wooccredo_Sales_Areas') ) :
         /**
          * Get sales areas.
          * 
-         * @return array
+         * @param   string  $ccode      Sales area code.
+         * @param   string  $fields     Taxonomy fields.
+         * @return  array
+         * @since   1.0.0
          */
-        public static function getSalesAreas() {
-            $salesAreas = get_terms([
+        public static function getSalesAreas($code = '', $fields = 'all') {
+            $args = [
                 'taxonomy'      => self::$taxonomy,
-                'hide_empty'    => FALSE
-            ]);
+                'hide_empty'    => FALSE,
+                'fields'        => $fields
+            ];
+
+            if( !empty($code) ) : 
+                $args['meta_key'] = 'sales_area_code';
+                $args['meta_value'] = $code;
+            endif;
+
+            $salesAreas = get_terms($args);
 
             return $salesAreas ? $salesAreas : FALSE;
         }
@@ -45,8 +56,8 @@ if( !class_exists('Wooccredo_Sales_Areas') ) :
         /**
          * Update sales area.
          * 
-         * @param   $name   Sales area name.
-         * @param   $code   Sales area code.
+         * @param   string  $name       Sales area name.
+         * @param   string  $code       Sales area code.
          * @since   1.0.0
          */
         public static function updateSalesArea($name, $code) {
@@ -64,10 +75,11 @@ if( !class_exists('Wooccredo_Sales_Areas') ) :
             endif;
 
             if( !is_wp_error($term) ) :
+                update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'sales_area_code', $code);
             endif;
 
-            error_log($name .' synced');
+            Wooccredo::addLog('Sales Area : '. $name .' synced');
         }
 
         /**
@@ -76,31 +88,24 @@ if( !class_exists('Wooccredo_Sales_Areas') ) :
          * @since   1.0.0
          * @return  array
          */
-        public static function getSalesAreasFromAPI() {
+        public static function getSalesAreasFromAPI($url = '') {
             $accessToken = Wooccredo::getToken();
 
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ARSalesArea?\$Select=SalesAreaCode,SalesAreaName,Inactive?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ARSalesArea?\$Select=SalesAreaCode,SalesAreaName,Inactive?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-            
-            if( $error ) :
-                return FALSE;
-            else :
-                $results = json_decode($result, TRUE);
-                return isset($results['error']) ? FALSE : $results;
-            endif;
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
         }
     }
 

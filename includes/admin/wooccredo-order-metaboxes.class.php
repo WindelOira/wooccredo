@@ -5,6 +5,8 @@ if( !class_exists('Wooccredo_Order_Metaboxes') ) :
     class Wooccredo_Order_Metaboxes {
         /**
          * Init
+         * 
+         * @since   1.0.0
          */
         public static function init() {
             add_action('add_meta_boxes', __CLASS__ .'::addMetaboxes');
@@ -12,6 +14,8 @@ if( !class_exists('Wooccredo_Order_Metaboxes') ) :
 
         /**
          * Add meta boxes
+         * 
+         * @since   1.0.0
          */
         public static function addMetaboxes() {
             add_meta_box('wooccredo_order_fields', __('Wooccredo', WOOCCREDO_TEXT_DOMAIN), __CLASS__ .'::orderFields', 'shop_order', 'side', 'high');
@@ -19,6 +23,8 @@ if( !class_exists('Wooccredo_Order_Metaboxes') ) :
 
         /**
          * Order fields.
+         * 
+         * @since   1.0.0
          */
         public static function orderFields() {
             global $post;

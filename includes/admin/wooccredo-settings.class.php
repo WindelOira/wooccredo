@@ -42,10 +42,14 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
          */
         public static function adminInit() {
             register_setting('wooccredo', 'wooccredo_configured');
+            register_setting('wooccredo', 'wooccredo_ssl');
+            register_setting('wooccredo', 'wooccredo_host');
+            register_setting('wooccredo', 'wooccredo_port');
             register_setting('wooccredo', 'wooccredo_company');
             register_setting('wooccredo', 'wooccredo_client_id');
             register_setting('wooccredo', 'wooccredo_username');
             register_setting('wooccredo', 'wooccredo_password');
+            register_setting('wooccredo', 'wooccredo_logging');
         }
 
         /**
@@ -69,9 +73,128 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
             // Notice if settings was configured and invalid authentication.
             if( Wooccredo::getOption('configured') && 
                 ($token && isset($token['error'])) ) :
+                Wooccredo::updateSyncStatus('invoices', '');
+                Wooccredo::updateSyncStatus('customers', '');
+                Wooccredo::updateSyncStatus('sales_persons', '');
+                Wooccredo::updateSyncStatus('sales_areas', '');
+                Wooccredo::updateSyncStatus('locations', '');
+                Wooccredo::updateSyncStatus('branches', '');
+                Wooccredo::updateSyncStatus('departments', '');
             ?>
                 <div class="notice notice-error">
                     <p><?php _e('Client authentication failed. Please make sure you entered correct Accredo credentials.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if invoices sync is processing in background.
+            if( Wooccredo::getSyncStatus('invoices') == 'processing' ) :
+            ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Invoices sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('invoices') == 'done' ) :
+                Wooccredo::updateSyncStatus('invoices', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Invoices sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if customers sync is processing in background.
+            if( Wooccredo::getSyncStatus('customers') == 'processing' ) :
+            ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Customers sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('customers') == 'done' ) :
+                Wooccredo::updateSyncStatus('customers', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Customers sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if customers sync is processing in background.
+            if( Wooccredo::getSyncStatus('sales_persons') == 'processing' ) :
+                ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Sales persons sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('sales_persons') == 'done' ) :
+                Wooccredo::updateSyncStatus('sales_persons', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Sales persons sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if customers sync is processing in background.
+            if( Wooccredo::getSyncStatus('sales_areas') == 'processing' ) :
+                ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Sales areas sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('sales_areas') == 'done' ) :
+                Wooccredo::updateSyncStatus('sales_areas', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Sales areas sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if customers sync is processing in background.
+            if( Wooccredo::getSyncStatus('locations') == 'processing' ) :
+                ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Locations sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('locations') == 'done' ) :
+                Wooccredo::updateSyncStatus('locations', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Locations sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if customers sync is processing in background.
+            if( Wooccredo::getSyncStatus('branches') == 'processing' ) :
+                ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Branches sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('branches') == 'done' ) :
+                Wooccredo::updateSyncStatus('branches', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Branches sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            endif;
+
+            // Notice if customers sync is processing in background.
+            if( Wooccredo::getSyncStatus('departments') == 'processing' ) :
+                ?>
+                <div class="notice notice-info is-dismissible">
+                    <p><?php _e('Departments sync is in process.', WOOCCREDO_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php
+            elseif( Wooccredo::getSyncStatus('departments') == 'done' ) :
+                Wooccredo::updateSyncStatus('departments', '');
+            ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php _e('Departments sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
                 </div>
             <?php
             endif;
@@ -95,6 +218,35 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                     <?php do_settings_sections('wooccredo'); ?>
                     <input type="hidden" name="wooccredo_configured" value="1">
                     <table class="form-table">
+                        <tr valign="top">
+                            <th scope="row">
+                                <?php _e('Use SSL', WOOCCREDO_TEXT_DOMAIN); ?>
+                            </th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="wooccredo_ssl" value="1" <?php checked(1, esc_attr(get_option('wooccredo_ssl')), TRUE); ?>/> 
+                                </label>
+                            </td>
+                        </tr>
+
+                        <tr valign="top">
+                            <th scope="row">
+                                <?php _e('Hostname', WOOCCREDO_TEXT_DOMAIN); ?>
+                            </th>
+                            <td>
+                                <input type="text" name="wooccredo_host" value="<?php echo esc_attr(get_option('wooccredo_host')); ?>" required/>
+                            </td>
+                        </tr>
+
+                        <tr valign="top">
+                            <th scope="row">
+                                <?php _e('Port', WOOCCREDO_TEXT_DOMAIN); ?>
+                            </th>
+                            <td>
+                                <input type="text" name="wooccredo_port" value="<?php echo esc_attr(get_option('wooccredo_port')); ?>" required/>
+                            </td>
+                        </tr>
+
                         <tr valign="top">
                             <th scope="row">
                                 <?php _e('Company', WOOCCREDO_TEXT_DOMAIN); ?>
@@ -130,6 +282,16 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                                 <input type="password" name="wooccredo_password" value="<?php echo esc_attr(get_option('wooccredo_password')); ?>" required/>
                             </td>
                         </tr>
+
+                        <tr valign="top">
+                            <th scope="row"></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="wooccredo_logging" value="1" <?php checked(1, esc_attr(get_option('wooccredo_logging')), TRUE); ?>/> 
+                                    <?php _e('Enable Logging?', WOOCCREDO_TEXT_DOMAIN); ?>
+                                </label>
+                            </td>
+                        </tr>
                     </table>
                     
                     <?php submit_button(); ?>
@@ -162,95 +324,198 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
          * @since   1.0.0
          */
         public static function processHandlers() {
-            $accessToken = Wooccredo::getToken();
-            if( ($accessToken && !isset($accessToken['error'])) ) :
-                $backgroundProcess = new Wooccredo_Background_Process();
+            $now = strtotime('now');
+            $token = Wooccredo::getToken();
+            $tokenRefreshed = isset($token['refreshed']) ? $token['refreshed'] = TRUE : FALSE;
+            $backgroundProcess = new Wooccredo_Background_Process();            
+
+            if( !Wooccredo::isSynced() && 
+                ( $token && $tokenRefreshed ) || ( $now > Wooccredo::getNextSync() ) ) :
+                // Update tokens.
+                $token['refreshed'] = '';
+                update_option('wc_wooccredo_settings_token', $token);
+                // Update sync status.
+                update_option('wc_wooccredo_next_sync', strtotime('tomorrow'));
+                update_option('wc_wooccredo_synced', TRUE);
+
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('invoices', 'processing');
+                // Update customers sync status
+                Wooccredo::updateSyncStatus('customers', 'processing');
+                // Update sales persons sync status
+                Wooccredo::updateSyncStatus('sales_persons', 'processing');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('sales_areas', 'processing');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('locations', 'processing');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('branches', 'processing');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('departments', 'processing');
+                
+                if( !Wooccredo_Invoices::isSynced() ) :
+                    update_option('wc_wooccredo_invoices_synced', TRUE);
+                    $invoices = Wooccredo_Invoices::getInvoicesFromAPI();
+
+                    $invoicesCounter = 0;
+                    do {
+                        $invoicesCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_invoice',
+                            'data'  => $invoices['value'][($invoicesCounter - 1)]
+                        ]);
+
+                        if( $invoicesCounter == count($invoices['value']) && 
+                            isset($invoices['@odata.nextLink']) ) :
+                            $invoices = Wooccredo_Invoices::getInvoicesFromApi($invoices['@odata.nextLink']);
+
+                            $invoicesCounter = 0;
+                        endif;
+                    } while( $invoicesCounter < count($invoices['value']) );
+                endif;
 
                 if( !Wooccredo_Customers::isSynced() ) :
                     update_option('wc_wooccredo_customers_synced', TRUE);
 
                     $customers = Wooccredo_Customers::getCustomersFromAPI();
-                    if( $customers['value'] ) :
-                        foreach( $customers['value'] as $customer ) :
-                            $backgroundProcess->push_to_queue([
-                                'task'  => 'add_update_customer',
-                                'data'  => $customer
-                            ]);
-                        endforeach;
-                    endif;
+
+                    $customersCounter = 0;
+                    do {
+                        $customersCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_customer',
+                            'data'  => $customers['value'][($customersCounter - 1)]
+                        ]);
+
+                        if( $customersCounter == count($customers['value']) && 
+                            isset($customers['@odata.nextLink']) ) :
+                            $customers = Wooccredo_Invoices::getCustomersFromAPI($customers['@odata.nextLink']);
+
+                            $customersCounter = 0;
+                        endif;
+                    } while( $customersCounter < count($customers['value']) );
                 endif;
 
                 if( !Wooccredo_Sales_Persons::isSynced() ) :
                     update_option('wc_wooccredo_sales_persons_synced', TRUE);
 
                     $salesPersons = Wooccredo_Sales_Persons::getSalesPersonsFromAPI();
-                    if( $salesPersons['value'] ) :
-                        foreach( $salesPersons['value'] as $salesPerson ) :
-                            $backgroundProcess->push_to_queue([
-                                'task'  => 'add_update_sales_person',
-                                'data'  => $salesPerson
-                            ]);
-                        endforeach;
-                    endif;
+
+                    $salesPersonsCounter = 0;
+                    do {
+                        $salesPersonsCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_sales_person',
+                            'data'  => $salesPersons['value'][($salesPersonsCounter - 1)]
+                        ]);
+
+                        if( $salesPersonsCounter == count($salesPersons['value']) && 
+                            isset($salesPersons['@odata.nextLink']) ) :
+                            $salesPersons = Wooccredo_Invoices::getSalesPersonsFromAPI($salesPersons['@odata.nextLink']);
+
+                            $salesPersonsCounter = 0;
+                        endif;
+                    } while( $salesPersonsCounter < count($salesPersons['value']) );
                 endif;
                 
                 if( !Wooccredo_Sales_Areas::isSynced() ) :
                     update_option('wc_wooccredo_sales_areas_synced', TRUE);
 
                     $salesAreas = Wooccredo_Sales_Areas::getSalesAreasFromAPI();
-                    if( $salesAreas['value'] ) :
-                        foreach( $salesAreas['value'] as $salesArea ) :
-                            $backgroundProcess->push_to_queue([
-                                'task'  => 'add_update_sales_area',
-                                'data'  => $salesArea
-                            ]);
-                        endforeach;
-                    endif;
+
+                    $salesAreasCounter = 0;
+                    do {
+                        $salesAreasCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_sales_area',
+                            'data'  => $salesAreas['value'][($salesAreasCounter - 1)]
+                        ]);
+
+                        if( $salesAreasCounter == count($salesAreas['value']) && 
+                            isset($salesAreas['@odata.nextLink']) ) :
+                            $salesAreas = Wooccredo_Invoices::getSalesAreasFromAPI($salesAreas['@odata.nextLink']);
+
+                            $salesAreasCounter = 0;
+                        endif;
+                    } while( $salesAreasCounter < count($salesAreas['value']) );
                 endif;
 
                 if( !Wooccredo_Locations::isSynced() ) :
                     update_option('wc_wooccredo_locations_synced', TRUE);
 
                     $locations = Wooccredo_Locations::getLocationsFromAPI();
-                    if( $locations['value'] ) :
-                        foreach( $locations['value'] as $location ) :
-                            $backgroundProcess->push_to_queue([
-                                'task'  => 'add_update_location',
-                                'data'  => $location
-                            ]);
-                        endforeach;
-                    endif;
+                    
+                    $locationsCounter = 0;
+                    do {
+                        $locationsCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_location',
+                            'data'  => $locations['value'][($locationsCounter - 1)]
+                        ]);
+
+                        if( $locationsCounter == count($locations['value']) && 
+                            isset($locations['@odata.nextLink']) ) :
+                            $locations = Wooccredo_Invoices::getLocationsFromAPI($locations['@odata.nextLink']);
+
+                            $locationsCounter = 0;
+                        endif;
+                    } while( $locationsCounter < count($locations['value']) );
                 endif;
 
                 if( !Wooccredo_Branches::isSynced() ) :
                     update_option('wc_wooccredo_branches_synced', TRUE);
 
                     $branches = Wooccredo_Branches::getBranchesFromAPI();
-                    if( $branches['value'] ) :
-                        foreach( $branches['value'] as $branch ) :
-                            $backgroundProcess->push_to_queue([
-                                'task'  => 'add_update_branch',
-                                'data'  => $branch
-                            ]);
-                        endforeach;
-                    endif;
+
+                    $branchesCounter = 0;
+                    do {
+                        $branchesCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_branch',
+                            'data'  => $branches['value'][($branchesCounter - 1)]
+                        ]);
+
+                        if( $branchesCounter == count($branches['value']) && 
+                            isset($branches['@odata.nextLink']) ) :
+                            $branches = Wooccredo_Invoices::getDepartmentsFromAPI($branches['@odata.nextLink']);
+
+                            $branchesCounter = 0;
+                        endif;
+                    } while( $branchesCounter < count($branches['value']) );
                 endif;
 
                 if( !Wooccredo_Departments::isSynced() ) :
                     update_option('wc_wooccredo_departments_synced', TRUE);
 
                     $departments = Wooccredo_Departments::getDepartmentsFromAPI();
-                    if( $departments['value'] ) :
-                        foreach( $departments['value'] as $department ) :
-                            $backgroundProcess->push_to_queue([
-                                'task'  => 'add_update_department',
-                                'data'  => $department
-                            ]);
-                        endforeach;
-                    endif;
+
+                    $departmentsCounter = 0;
+                    do {
+                        $departmentsCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'add_update_department',
+                            'data'  => $departments['value'][($departmentsCounter - 1)]
+                        ]);
+
+                        if( $departmentsCounter == count($departments['value']) && 
+                            isset($departments['@odata.nextLink']) ) :
+                            $departments = Wooccredo_Invoices::getDepartmentsFromAPI($departments['@odata.nextLink']);
+
+                            $departmentsCounter = 0;
+                        endif;
+                    } while( $departmentsCounter < count($departments['value']) );
                 endif;
 
                 if( 0 < count($backgroundProcess->tasks()) ) :
+                    Wooccredo::addLog('Sync started...');
+
                     $backgroundProcess->save()->dispatch();
                 endif;
             endif;

@@ -31,14 +31,24 @@ if( !class_exists('Wooccredo_Sales_Persons') ) :
         /**
          * Get sales persons.
          * 
-         * @return array
+         * @param   string  $code       Sales person code.
+         * @param   string  $fields     Taxonomy fields.
+         * @return  array
          * @since   1.0.0
          */
-        public static function getSalesPersons() {
-            $salesPersons = get_terms([
+        public static function getSalesPersons($code = '', $fields = 'all') {
+            $args = [
                 'taxonomy'      => self::$taxonomy,
-                'hide_empty'    => FALSE
-            ]);
+                'hide_empty'    => FALSE,
+                'fields'        => $fields
+            ];
+
+            if( !empty($code) ) : 
+                $args['meta_key'] = 'sales_person_code';
+                $args['meta_value'] = $code;
+            endif;
+
+            $salesPersons = get_terms($args);
 
             return $salesPersons ? $salesPersons : FALSE;
         }
@@ -46,8 +56,8 @@ if( !class_exists('Wooccredo_Sales_Persons') ) :
         /**
          * Update sales person.
          * 
-         * @param   $name   Sales person name.
-         * @param   $code   Sales person code.
+         * @param   string  $name       Sales person name.
+         * @param   string  $code       Sales person code.
          * @since   1.0.0
          */
         public static function updateSalesPerson($name, $code) {
@@ -65,43 +75,37 @@ if( !class_exists('Wooccredo_Sales_Persons') ) :
             endif;
 
             if( !is_wp_error($term) ) :
+                update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'sales_person_code', $code);
             endif;
 
-            error_log($name .' synced');
+            Wooccredo::addLog('Sales Person : '. $name .' synced');
         }
 
         /**
          * Get sales persons from api.
          * 
-         * @return array
+         * @return  array
          * @since   1.0.0
          */
-        public static function getSalesPersonsFromAPI() {
+        public static function getSalesPersonsFromAPI($url = '') {
             $accessToken = Wooccredo::getToken();
 
             if( !isset($accessToken['access_token']) ) 
                 return FALSE;
 
-            $curl = curl_init();
+            $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
+            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ARSalesPerson?\$Select=SalesPersonCode,SalesPersonName,Inactive?access_token=". $accessToken['access_token'];
+            $args = [
+                'headers'   => [
+                    'OData-Version: 4.0',
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]
+            ];
+            $results = wp_remote_get($url, $args);
 
-            curl_setopt($curl, CURLOPT_URL, "https://demo.accredo.co.nz:6569/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/ARSalesPerson?\$Select=SalesPersonCode,SalesPersonName,Inactive?access_token=". $accessToken['access_token']);
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Accept: application/json',
-                'Content-Type: application/json'
-            ]);
-
-            $result = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-            
-            if( $error ) :
-                return FALSE;
-            else :
-                $results = json_decode($result, TRUE);
-                return isset($results['error']) ? FALSE : $results;
-            endif;
+            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
         }
     }
 
