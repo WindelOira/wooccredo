@@ -50,9 +50,10 @@ if( !class_exists('Wooccredo_Departments') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body']['DefaultDepartmentCode'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
         }
 
         /**
@@ -104,9 +105,9 @@ if( !class_exists('Wooccredo_Departments') ) :
             if( !is_wp_error($term) ) :
                 update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'department_code', $code);
-            endif;
 
-            Wooccredo::addLog('Department : '. $name .' synced');
+                Wooccredo::addLog('Department : '. $name .' synced.');
+            endif;
         }
 
         /**
@@ -130,9 +131,48 @@ if( !class_exists('Wooccredo_Departments') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return is_array($results) && !is_wp_error($results) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
+        }
+
+        /**
+         * Get unsynced departments.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedDepartments() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+
+            $departments = get_terms([
+                'taxonomy'      => self::$taxonomy,
+                'hide_empty'    => FALSE,
+                'fields'        => 'ids',
+                'meta_query'    => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+
+            return $departments;
+        }
+
+        /**
+         * Delete department.
+         * 
+         * @param   int     $department         Department ID.
+         * @since   1.0.0
+         */
+        public static function deleteDepartment($department) {
+            wp_delete_term($department, self::$taxonomy);
+
+            Wooccredo::addLog('Department : '. $department .' deleted.');
         }
     }
 

@@ -71,7 +71,7 @@ if( !class_exists('Wooccredo_Order_Metaboxes') ) :
                             foreach( $salesPersons as $salesPerson ) : 
                                 if( !get_term_meta($salesPerson->term_id, 'sales_person_code', TRUE) ) continue;
                         ?>
-                        <option value="<?php echo get_term_meta($customer->term_id, 'sales_person_code', TRUE); ?>" <?php selected($selectedSalesPerson, get_term_meta($customer->term_id, 'sales_person_code', TRUE), TRUE); ?>><?php echo $salesPerson->name; ?></option>
+                        <option value="<?php echo get_term_meta($salesPerson->term_id, 'sales_person_code', TRUE); ?>" <?php selected($selectedSalesPerson, get_term_meta($salesPerson->term_id, 'sales_person_code', TRUE), TRUE); ?>><?php echo $salesPerson->name; ?></option>
                         <?php endforeach; endif; ?>
                     </select>
                 </li>

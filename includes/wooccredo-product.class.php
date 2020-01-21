@@ -60,9 +60,9 @@ if( !class_exists('Wooccredo_Product') ) :
                 ]
             ];
             $request = wp_remote_get($url, $args);
-            $results = json_decode($request['body'], TRUE);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['error']) ) ? $results : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
         }
 
         /**

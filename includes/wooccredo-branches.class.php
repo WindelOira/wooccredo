@@ -49,9 +49,10 @@ if( !class_exists('Wooccredo_Branches') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body']['DefaultBranchCode'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response['DefaultBranchCode'] : FALSE;
         }
 
         /**
@@ -103,9 +104,9 @@ if( !class_exists('Wooccredo_Branches') ) :
             if( !is_wp_error($term) ) :
                 update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'branch_code', $code);
-            endif;
 
-            Wooccredo::addLog('Branch : '. $name .' synced');
+                Wooccredo::addLog('Branch : '. $name .' synced.');
+            endif;
         }
 
         /**
@@ -129,9 +130,48 @@ if( !class_exists('Wooccredo_Branches') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
+        }
+
+        /**
+         * Get unsynced branches.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedBranches() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+
+            $branches = get_terms([
+                'taxonomy'      => self::$taxonomy,
+                'hide_empty'    => FALSE,
+                'fields'        => 'ids',
+                'meta_query'    => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+
+            return $branches;
+        }
+
+        /**
+         * Delete branch.
+         * 
+         * @param   int     $branch         Branch ID.
+         * @since   1.0.0
+         */
+        public static function deleteBranch($branch) {
+            wp_delete_term($branch, self::$taxonomy);
+
+            Wooccredo::addLog('Branch : '. $branch .' deleted.');
         }
     }
 

@@ -26,6 +26,14 @@ if( !class_exists('Wooccredo_Background_Process') ) :
          * @since   1.0.0
          */
         protected function task($item) {
+            $token = Wooccredo::getToken();
+
+            // Stop the process if token is invalid
+            if( !$token || 
+                ( $token && isset($token['error']) ) ) :
+                $this->cancel_process();
+            endif;
+
             $task = @$item['task'];
             $data = @$item['data'];
 
@@ -104,6 +112,27 @@ if( !class_exists('Wooccredo_Background_Process') ) :
                     return;
 
                 Wooccredo_Departments::updateDepartment($departmentName, $departmentCode);
+            // Delete invoice
+            elseif( $task == 'delete_invoice' ) :
+                Wooccredo_Invoice::deleteInvoice($data);
+            // Delete customer
+            elseif( $task == 'delete_customer' ) :
+                Wooccredo_Customers::deleteCustomer($data);
+            // Delete sales person
+            elseif( $task == 'delete_sales_person' ) :
+                Wooccredo_Sales_Persons::deleteSalesPerson($data);
+            // Delete sales area
+            elseif( $task == 'delete_sales_area' ) :
+                Wooccredo_Sales_Areas::deleteSalesArea($data);
+            // Delete location
+            elseif( $task == 'delete_location' ) :
+                Wooccredo_Locations::deleteLocation($data);
+            // Delete customer
+            elseif( $task == 'delete_branch' ) :
+                Wooccredo_Branches::deleteBranch($data);
+            // Delete customer
+            elseif( $task == 'delete_department' ) :
+                Wooccredo_Departments::deleteDepartment($data);
             endif;
 
             sleep(1);
@@ -119,14 +148,67 @@ if( !class_exists('Wooccredo_Background_Process') ) :
          * @since   1.0.0
 		 */
 		public function dispatch() {
-            // Update sync time
-            update_option('wc_wooccredo_sync_started', strtotime('now'));
-
 			// Schedule the cron healthcheck.
 			$this->schedule_event();
 
 			// Perform remote post.
 			return parent::dispatch();
+        }
+        
+        /**
+		 * Cancel Process
+		 *
+		 * Stop processing queue items, clear cronjob and delete batch.
+		 *
+         * @since   1.0.0
+		 */
+		public function cancel_process() {
+			if ( ! $this->is_queue_empty() ) :
+				$batch = $this->get_batch();
+
+				$this->delete( $batch->key );
+
+                wp_clear_scheduled_hook( $this->cron_hook_identifier );
+                
+                // Set sync status for all to false.
+                update_option('wc_wooccredo_synced', FALSE);
+
+                // Set sync status for invoices to false.
+                update_option('wc_wooccredo_invoices_synced', FALSE);
+                
+                // Set sync status for customers to false.
+                update_option('wc_wooccredo_customers_synced', FALSE);
+
+                // Set sync status for sales persons to false.
+                update_option('wc_wooccredo_sales_persons_synced', FALSE);
+
+                // Set sync status for sales areas to false.
+                update_option('wc_wooccredo_sales_areas_synced', FALSE);
+
+                // Set sync status for locations to false.
+                update_option('wc_wooccredo_locations_synced', FALSE);
+
+                // Set sync status for branches to false.
+                update_option('wc_wooccredo_branches_synced', FALSE);
+
+                // Set sync status for departments to false.
+                update_option('wc_wooccredo_departments_synced', FALSE);
+
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('invoices', '');
+                // Update customers sync status
+                Wooccredo::updateSyncStatus('customers', '');
+                // Update sales persons sync status
+                Wooccredo::updateSyncStatus('sales_persons', '');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('sales_areas', '');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('locations', '');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('branches', '');
+                // Update invoices sync status
+                Wooccredo::updateSyncStatus('departments', '');
+            endif;
 		}
 
         /**
@@ -151,9 +233,6 @@ if( !class_exists('Wooccredo_Background_Process') ) :
             Wooccredo::updateSyncStatus('branches', 'done');
             // Update invoices sync status
             Wooccredo::updateSyncStatus('departments', 'done');
-
-            // Delete unsynced
-            // Wooccredo::deleteUnsynced();
 
             Wooccredo::addLog('Sync done...');
         }

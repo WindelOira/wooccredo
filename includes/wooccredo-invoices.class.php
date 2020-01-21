@@ -123,7 +123,7 @@ if( !class_exists('Wooccredo_Invoices') ) :
                 return FALSE;
 
             $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
-            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/INInvoiceList?\$Select=DocumentID,OrderNo,CustomerCode,DeliveryDate,PrintStatus,PostStatus,PackingSlipNo,DocumentNo,GrossAmount,SalesPersonCode,SalesAreaCode,DefaultLocationCode,BranchCode,DepartmentCode?access_token=". $accessToken['access_token'];
+            $url = !empty($url) ? $url : $http ."://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/odata4/v1/Company('". Wooccredo::getOption('company') ."')/INInvoiceList?\$Select=DocumentID,OrderNo,CustomerCode,DocumentDate,DeliveryDate,PrintStatus,PostStatus,PackingSlipNo,DocumentNo,GrossAmount,SalesPersonCode,SalesAreaCode,DefaultLocationCode,BranchCode,DepartmentCode?access_token=". $accessToken['access_token'];
             $args = [
                 'headers'   => [
                     'OData-Version: 4.0',
@@ -131,9 +131,10 @@ if( !class_exists('Wooccredo_Invoices') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
         }
 
         /**
@@ -191,7 +192,7 @@ if( !class_exists('Wooccredo_Invoices') ) :
                 $data['SalesAreaCode'] = $salesArea;
             endif;
 
-            if( !empty($SalesPersonCode) ) :
+            if( !empty($salesPerson) ) :
                 $data['SalesPersonCode'] = $salesPerson;
             endif;
 
@@ -251,6 +252,8 @@ if( !class_exists('Wooccredo_Invoices') ) :
 
                     $invoiceID = Wooccredo_Invoice::updateInvoice($response);
 
+                    Wooccredo::addLog('Invoice #'. $response['DocumentID'] .' sent to accredo.');
+
                     $order->add_order_note(__(sprintf('Order invoice successfully sent to Accredo. Your document ID is #%s <a href="admin.php?page=wooccredo-invoices&action=view&invoice=%s">View Invoice</a>', $response['DocumentID'], $invoiceID), WOOCCREDO_TEXT_DOMAIN));
                 endif;
             endif;
@@ -289,6 +292,32 @@ if( !class_exists('Wooccredo_Invoices') ) :
             // else :
             //     $order->add_order_note(__('Order invoice failed to send to Accredo.', WOOCCREDO_TEXT_DOMAIN));
             // endif;
+        }
+
+        /**
+         * Get unsynced invoices.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedInvoices() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+            $invoices = get_posts([
+                'post_type'         => Wooccredo_Invoice::$postType,
+                'posts_per_page'    => -1,
+                'fields'            => 'ids',
+                'meta_query'        => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+            wp_reset_postdata();
+
+            return $invoices;
         }
 
         /**

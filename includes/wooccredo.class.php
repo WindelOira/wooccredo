@@ -15,13 +15,9 @@ if( !class_exists('Wooccredo') ) :
             register_activation_hook(__FILE__, __CLASS__ .'::activate');
             register_deactivation_hook(__FILE__, __CLASS__ .'::deactivate');
 
-            add_action('plugins_loaded', __CLASS__ .'::pluginsLoaded');
             add_action('init', __CLASS__ .'::registerPostTypes');
             add_action('init', __CLASS__ .'::registerTaxonomies');
-
-            if( self::isTokenExpired() ) :
-                self::saveToken();
-            endif;
+            add_action('plugins_loaded', __CLASS__ .'::pluginsLoaded');
         }
 
         /**
@@ -140,8 +136,10 @@ if( !class_exists('Wooccredo') ) :
          * @param   string  $status     Status.
          * @since   1.0.0
          */
-        public static function updateSyncStatus($type, $status) {
+        public static function updateSyncStatus($type, $status, $customStatus = '') {
             update_option('wc_wooccredo_'. $type .'_sync_status', $status);
+            
+            self::addLog(ucfirst(str_replace('_', ' ', $type)) .' sync '. $customStatus);
         }
         
         /**
@@ -153,58 +151,6 @@ if( !class_exists('Wooccredo') ) :
          */
         public static function getSyncStatus($type) {
             return get_option('wc_wooccredo_'. $type .'_sync_status');
-        }
-
-        /**
-         * Delete unsynced.
-         * 
-         * @since   1.0.0
-         */
-        public static function deleteUnsynced() {
-            $syncStarted = get_option('wc_wooccredo_sync_started');
-            $metaArgs = [
-                'relation'      => 'AND',
-                [
-                    'key'       => 'sync_started',
-                    'value'     => $syncStarted,
-                    'compare'   => '<'
-                ]
-            ];
-
-            // Delete unsynced invoices
-            $invoices = get_posts([
-                'post_type'         => Wooccredo_Invoice::$postType,
-                'posts_per_page'    => -1,
-                'fields'            => 'ids',
-                'meta_query'        => $metaArgs
-            ]);
-            if( $invoices ) :
-                foreach( $invoices as $invoice ) :
-                    wp_delete_post($invoice->ID, TRUE);
-                endforeach;
-                wp_reset_postdata();
-            endif;
-
-            // Delete unsynced terms
-            $terms = get_terms([
-                'taxonomy'      => [
-                    Wooccredo_Customers::$taxonomy,
-                    Wooccredo_Sales_Persons::$taxonomy,
-                    Wooccredo_Sales_Areas::$taxonomy,
-                    Wooccredo_Locations::$taxonomy,
-                    Wooccredo_Branches::$taxonomy,
-                    Wooccredo_Departments::$taxonomy
-                ],
-                'hide_empty'    => FALSE,
-                'meta_query'    => $metaArgs
-            ]);
-            if( $terms ) :
-                foreach( $terms as $term ) :
-                    wp_delete_term($term->term_id, $term->taxonomy);
-                endforeach;
-            endif;
-
-            Wooccredo::addLog('Unsynced resources deleted...');
         }
 
         /**
@@ -418,12 +364,18 @@ if( !class_exists('Wooccredo') ) :
          * @since   1.0.0
          */
         public static function pluginsLoaded() {
+            $token = self::getToken();
+            if( $token && !isset($token['error']) && self::isTokenExpired() ) :
+                self::saveToken();
+            endif;
+
+            include_once WOOCCREDO_ABSPATH .'includes/wooccredo-background-process.class.php';
+
             include_once WOOCCREDO_ABSPATH .'includes/admin/wooccredo-settings.class.php';
             include_once WOOCCREDO_ABSPATH .'includes/admin/wooccredo-order-metaboxes.class.php';
             include_once WOOCCREDO_ABSPATH .'includes/admin/wooccredo-order-actions.class.php';
             include_once WOOCCREDO_ABSPATH .'includes/admin/wooccredo-invoices-list.class.php';
 
-            include_once WOOCCREDO_ABSPATH .'includes/wooccredo-background-process.class.php';
             include_once WOOCCREDO_ABSPATH .'includes/wooccredo-product.class.php';
             include_once WOOCCREDO_ABSPATH .'includes/wooccredo-customers.class.php';
             include_once WOOCCREDO_ABSPATH .'includes/wooccredo-sales-persons.class.php';
@@ -464,6 +416,9 @@ if( !class_exists('Wooccredo') ) :
          * @since   1.0.0
          */
         public static function generateToken() {
+            // Get current token
+            $oldToken = self::getToken();
+
             $http = Wooccredo::getOption('ssl') ? 'https' : 'http';
             $url = $http. "://". Wooccredo::getOption('host') .":". Wooccredo::getOption('port') ."/saturn/oauth2/v1/token";
             $args = [
@@ -474,9 +429,17 @@ if( !class_exists('Wooccredo') ) :
                 ],
                 'body'      => 'grant_type=password&client_id='. self::getOption('client_id') .'&username='. self::getOption('username') .'&password='. self::getOption('password')
             ];
-            $results = wp_remote_post($url, $args);
+            $request = wp_remote_post($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
+            
+            // Add params to new token
+            if( $response ) :
+                $response['old_token'] = $oldToken && !isset($oldToken['error']) ? $oldToken['access_token'] : '';
+                $response['timestamp'] = time();
+                $response['refreshed'] = 1;
+            endif;
 
-            return !is_wp_error($results) && is_array($results) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) ? $response : FALSE;
         }
 
         /**
@@ -487,16 +450,14 @@ if( !class_exists('Wooccredo') ) :
          */
         public static function isTokenExpired() {
             $token = get_option('wc_wooccredo_settings_token');
-            $now = strtotime('now');
 
-            if( !$token ) :
+            if( !$token )
                 return FALSE;
-            endif;
 
-            if( isset($token['error']) ) :
+            if( isset($token['error']) )
                 return FALSE;
-            endif;
 
+            $now = time();
             $tokenLife = $token['timestamp'] + $token['expires_in'];
 
             return $now > $tokenLife ? TRUE : FALSE;
@@ -511,10 +472,6 @@ if( !class_exists('Wooccredo') ) :
         public static function getToken() {
             $token = get_option('wc_wooccredo_settings_token');
 
-            if( self::isTokenExpired() ) :
-                return self::saveToken();
-            endif;
-
             return $token;
         }
 
@@ -528,11 +485,6 @@ if( !class_exists('Wooccredo') ) :
 
             if( !$generatedToken )
                 return FALSE;
-
-            if( !isset($generatedToken['error']) ) :
-                $generatedToken['timestamp'] = strtotime('now');
-                $generatedToken['refreshed'] = 1;
-            endif;
             
             // Update tokens.
             update_option('wc_wooccredo_settings_token', $generatedToken);

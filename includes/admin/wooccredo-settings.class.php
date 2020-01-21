@@ -95,7 +95,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('invoices') == 'done' ) :
-                Wooccredo::updateSyncStatus('invoices', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Invoices sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -111,7 +110,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('customers') == 'done' ) :
-                Wooccredo::updateSyncStatus('customers', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Customers sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -127,7 +125,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('sales_persons') == 'done' ) :
-                Wooccredo::updateSyncStatus('sales_persons', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Sales persons sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -143,7 +140,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('sales_areas') == 'done' ) :
-                Wooccredo::updateSyncStatus('sales_areas', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Sales areas sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -159,7 +155,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('locations') == 'done' ) :
-                Wooccredo::updateSyncStatus('locations', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Locations sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -175,7 +170,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('branches') == 'done' ) :
-                Wooccredo::updateSyncStatus('branches', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Branches sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -191,7 +185,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 </div>
             <?php
             elseif( Wooccredo::getSyncStatus('departments') == 'done' ) :
-                Wooccredo::updateSyncStatus('departments', '');
             ?>
                 <div class="notice notice-success is-dismissible">
                     <p><?php _e('Departments sync done.', WOOCCREDO_TEXT_DOMAIN); ?></p>
@@ -207,7 +200,6 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
          */
         public static function settingsPage() {
             $token = get_option('wc_wooccredo_settings_token');
-            var_dump($token);
         ?>
             <div class="wrap wooccredo">
                 <h1><?php _e('Wooccredo', WOOCCREDO_TEXT_DOMAIN); ?></h1>
@@ -324,34 +316,37 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
          * @since   1.0.0
          */
         public static function processHandlers() {
-            $now = strtotime('now');
+            $now = time();
             $token = Wooccredo::getToken();
             $tokenRefreshed = isset($token['refreshed']) ? $token['refreshed'] = TRUE : FALSE;
             $backgroundProcess = new Wooccredo_Background_Process();            
 
             if( !Wooccredo::isSynced() && 
-                ( $token && $tokenRefreshed ) || ( $now > Wooccredo::getNextSync() ) ) :
+                ( ( $token && $tokenRefreshed && empty($token['old_token']) ) || 
+                  ( $token && !empty($token['old_token']) && $now > Wooccredo::getNextSync() ) ) ) :
                 // Update tokens.
                 $token['refreshed'] = '';
                 update_option('wc_wooccredo_settings_token', $token);
+
                 // Update sync status.
+                update_option('wc_wooccredo_sync_started', time());
                 update_option('wc_wooccredo_next_sync', strtotime('tomorrow'));
                 update_option('wc_wooccredo_synced', TRUE);
 
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('invoices', 'processing');
+                Wooccredo::updateSyncStatus('invoices', 'processing', 'processing');
                 // Update customers sync status
-                Wooccredo::updateSyncStatus('customers', 'processing');
+                Wooccredo::updateSyncStatus('customers', 'processing', 'processing');
                 // Update sales persons sync status
-                Wooccredo::updateSyncStatus('sales_persons', 'processing');
+                Wooccredo::updateSyncStatus('sales_persons', 'processing', 'processing');
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('sales_areas', 'processing');
+                Wooccredo::updateSyncStatus('sales_areas', 'processing', 'processing');
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('locations', 'processing');
+                Wooccredo::updateSyncStatus('locations', 'processing', 'processing');
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('branches', 'processing');
+                Wooccredo::updateSyncStatus('branches', 'processing', 'processing');
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('departments', 'processing');
+                Wooccredo::updateSyncStatus('departments', 'processing', 'processing');
                 
                 if( !Wooccredo_Invoices::isSynced() ) :
                     update_option('wc_wooccredo_invoices_synced', TRUE);
@@ -372,7 +367,7 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $invoicesCounter = 0;
                         endif;
-                    } while( $invoicesCounter < count($invoices['value']) );
+                    } while( !is_wp_error($invoices) && $invoicesCounter < count($invoices['value']) );
                 endif;
 
                 if( !Wooccredo_Customers::isSynced() ) :
@@ -395,7 +390,7 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $customersCounter = 0;
                         endif;
-                    } while( $customersCounter < count($customers['value']) );
+                    } while( !is_wp_error($customers) && $customersCounter < count($customers['value']) );
                 endif;
 
                 if( !Wooccredo_Sales_Persons::isSynced() ) :
@@ -418,7 +413,7 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $salesPersonsCounter = 0;
                         endif;
-                    } while( $salesPersonsCounter < count($salesPersons['value']) );
+                    } while( !is_wp_error($salesPersons) && $salesPersonsCounter < count($salesPersons['value']) );
                 endif;
                 
                 if( !Wooccredo_Sales_Areas::isSynced() ) :
@@ -441,7 +436,7 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $salesAreasCounter = 0;
                         endif;
-                    } while( $salesAreasCounter < count($salesAreas['value']) );
+                    } while( !is_wp_error($salesAreas) && $salesAreasCounter < count($salesAreas['value']) );
                 endif;
 
                 if( !Wooccredo_Locations::isSynced() ) :
@@ -464,7 +459,7 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $locationsCounter = 0;
                         endif;
-                    } while( $locationsCounter < count($locations['value']) );
+                    } while( !is_wp_error($locations) && $locationsCounter < count($locations['value']) );
                 endif;
 
                 if( !Wooccredo_Branches::isSynced() ) :
@@ -487,7 +482,7 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $branchesCounter = 0;
                         endif;
-                    } while( $branchesCounter < count($branches['value']) );
+                    } while( !is_wp_error($branches) && $branchesCounter < count($branches['value']) );
                 endif;
 
                 if( !Wooccredo_Departments::isSynced() ) :
@@ -510,12 +505,152 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
 
                             $departmentsCounter = 0;
                         endif;
-                    } while( $departmentsCounter < count($departments['value']) );
+                    } while( !is_wp_error($departments) && $departmentsCounter < count($departments['value']) );
                 endif;
 
                 if( 0 < count($backgroundProcess->tasks()) ) :
                     Wooccredo::addLog('Sync started...');
 
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced invoices
+            if( Wooccredo::getSyncStatus('invoices') == 'done' ) :
+                Wooccredo::updateSyncStatus('invoices', '', 'deleted');
+                $unsyncedInvoices = Wooccredo_Invoices::getUnsyncedInvoices();
+
+                if( is_array($unsyncedInvoices) && 0 < count($unsyncedInvoices) ) :
+                    $unsyncedInvoicesCounter = 0;
+                    do {
+                        $unsyncedInvoicesCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_invoice',
+                            'data'  => $unsyncedInvoices[($unsyncedInvoicesCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedInvoicesCounter < count($unsyncedInvoices) );
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced customers
+            if( Wooccredo::getSyncStatus('customers') == 'done' ) :
+                Wooccredo::updateSyncStatus('customers', '', 'deleted');
+                $unsyncedCustomers = Wooccredo_Customers::getUnsyncedCustomers();
+
+                if( is_array($unsyncedCustomers) && 0 < count($unsyncedCustomers) ) :
+                    $unsyncedCustomersCounter = 0;
+                    do {
+                        $unsyncedCustomersCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_customer',
+                            'data'  => $unsyncedCustomers[($unsyncedCustomersCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedCustomersCounter < count($unsyncedCustomers) );
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced sales persons
+            if( Wooccredo::getSyncStatus('sales_persons') == 'done' ) :
+                Wooccredo::updateSyncStatus('sales_persons', '', 'deleted');
+                $unsyncedSalesPersons = Wooccredo_Sales_Persons::getUnsyncedSalesPersons();
+
+                if( is_array($unsyncedSalesPersons) && 0 < count($unsyncedSalesPersons) ) :
+                    $unsyncedSalesPersonsCounter = 0;
+                    do {
+                        $unsyncedSalesPersonsCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_sales_person',
+                            'data'  => $unsyncedSalesPersons[($unsyncedSalesPersonsCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedSalesPersonsCounter < count($unsyncedSalesPersons) );
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced sales areas
+            if( Wooccredo::getSyncStatus('sales_areas') == 'done' ) :
+                Wooccredo::updateSyncStatus('sales_areas', '', 'deleted');
+                $unsyncedSalesAreas = Wooccredo_Sales_Areas::getUnsyncedSalesAreas();
+
+                if( is_array($unsyncedSalesAreas) && 0 < count($unsyncedSalesAreas) ) :
+                    $unsyncedSalesAreasCounter = 0;
+                    do {
+                        $unsyncedSalesAreasCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_sales_area',
+                            'data'  => $unsyncedSalesAreas[($unsyncedSalesAreasCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedSalesAreasCounter < count($unsyncedSalesAreas) );
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced locations
+            if( Wooccredo::getSyncStatus('locations') == 'done' ) :
+                Wooccredo::updateSyncStatus('locations', '', 'deleted');
+                $unsyncedLocations = Wooccredo_Locations::getUnsyncedLocations();
+
+                if( is_array($unsyncedLocations) && 0 < count($unsyncedLocations) ) :
+                    $unsyncedLocationsCounter = 0;
+                    do {
+                        $unsyncedLocationsCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_location',
+                            'data'  => $unsyncedLocations[($unsyncedLocationsCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedLocationsCounter < count($unsyncedLocations) );
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced branches
+            if( Wooccredo::getSyncStatus('branches') == 'done' ) :
+                Wooccredo::updateSyncStatus('branches', '', 'deleted');
+                $unsyncedBranches = Wooccredo_Branches::getUnsyncedBranches();
+
+                if( is_array($unsyncedBranches) && 0 < count($unsyncedBranches) ) :
+                    $unsyncedBranchesCounter = 0;
+                    do {
+                        $unsyncedBranchesCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_branch',
+                            'data'  => $unsyncedBranches[($unsyncedBranchesCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedBranchesCounter < count($unsyncedBranches) );
+                    $backgroundProcess->save()->dispatch();
+                endif;
+            endif;
+
+            // Delete unsynced departments
+            if( Wooccredo::getSyncStatus('departments') == 'done' ) :
+                Wooccredo::updateSyncStatus('departments', '', 'deleted');
+                $unsyncedDepartments = Wooccredo_Departments::getUnsyncedDepartments();
+
+                if( is_array($unsyncedDepartments) && 0 < count($unsyncedDepartments) ) :
+                    $unsyncedDepartmentsCounter = 0;
+                    do {
+                        $unsyncedDepartmentsCounter++;
+
+                        $backgroundProcess->push_to_queue([
+                            'task'  => 'delete_department',
+                            'data'  => $unsyncedDepartments[($unsyncedDepartmentsCounter - 1)]
+                        ]);
+
+                    } while( $unsyncedDepartmentsCounter < count($unsyncedDepartments) );
                     $backgroundProcess->save()->dispatch();
                 endif;
             endif;

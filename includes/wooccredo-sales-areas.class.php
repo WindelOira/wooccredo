@@ -77,9 +77,9 @@ if( !class_exists('Wooccredo_Sales_Areas') ) :
             if( !is_wp_error($term) ) :
                 update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'sales_area_code', $code);
-            endif;
 
-            Wooccredo::addLog('Sales Area : '. $name .' synced');
+                Wooccredo::addLog('Sales Area : '. $name .' synced.');
+            endif;
         }
 
         /**
@@ -103,9 +103,48 @@ if( !class_exists('Wooccredo_Sales_Areas') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
+        }
+
+        /**
+         * Get unsynced ales areas.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedSalesAreas() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+
+            $salesAreas = get_terms([
+                'taxonomy'      => self::$taxonomy,
+                'hide_empty'    => FALSE,
+                'fields'        => 'ids',
+                'meta_query'    => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+
+            return $salesAreas;
+        }
+
+        /**
+         * Delete sales area.
+         * 
+         * @param   int     $salesArea      Sales area ID.
+         * @since   1.0.0
+         */
+        public static function deleteSalesArea($salesArea) {
+            wp_delete_term($salesArea, self::$taxonomy);
+
+            Wooccredo::addLog('Sales Area : '. $salesArea .' deleted.');
         }
     }
 

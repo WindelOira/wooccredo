@@ -78,9 +78,9 @@ if( !class_exists('Wooccredo_Customers') ) :
             if( !is_wp_error($term) ) :
                 update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'customer_code', $code);
-            endif;
 
-            Wooccredo::addLog('Customer : '. $name .' synced');
+                Wooccredo::addLog('Customer : '. $name .' synced.');
+            endif;
         }
 
         /**
@@ -103,9 +103,48 @@ if( !class_exists('Wooccredo_Customers') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
+        }
+
+        /**
+         * Get unsynced customers.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedCustomers() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+
+            $customers = get_terms([
+                'taxonomy'      => self::$taxonomy,
+                'hide_empty'    => FALSE,
+                'fields'        => 'ids',
+                'meta_query'    => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+
+            return $customers;
+        }
+
+        /**
+         * Delete customer.
+         * 
+         * @param   int     $customer       Customer ID.
+         * @since   1.0.0
+         */
+        public static function deleteCustomer($customer) {
+            wp_delete_term($customer, self::$taxonomy);
+
+            Wooccredo::addLog('Customer : '. $customer .' deleted.');
         }
     }
 

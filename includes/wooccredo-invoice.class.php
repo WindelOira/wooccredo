@@ -231,7 +231,7 @@ if( !class_exists('Wooccredo_Invoice') ) :
                 wp_set_post_terms($invoiceID, Wooccredo_Departments::getDepartments(@$data['DepartmentCode'], 'ids'), Wooccredo_Departments::$taxonomy);
             endif;
 
-            Wooccredo::addLog('Invoice : '. @$data['DocumentID'] .' synced');
+            Wooccredo::addLog('Invoice #'. @$data['DocumentID'] .' synced.');
 
             return $invoiceID;
         }
@@ -351,6 +351,18 @@ if( !class_exists('Wooccredo_Invoice') ) :
             endif;
 
             return $lines;
+        }
+
+        /**
+         * Delete invoice.
+         * 
+         * @param   int     $invoice        Invoice ID.
+         * @since   1.0.0
+         */
+        public static function deleteInvoice($invoice) {
+            wp_delete_post($invoice, TRUE);
+
+            Wooccredo::addLog('Invoice : '. $invoice .' deleted.');
         }
     }
 

@@ -77,9 +77,9 @@ if( !class_exists('Wooccredo_Sales_Persons') ) :
             if( !is_wp_error($term) ) :
                 update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'sales_person_code', $code);
-            endif;
 
-            Wooccredo::addLog('Sales Person : '. $name .' synced');
+                Wooccredo::addLog('Sales Person : '. $name .' synced.');
+            endif;
         }
 
         /**
@@ -103,9 +103,48 @@ if( !class_exists('Wooccredo_Sales_Persons') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
+        }
+
+        /**
+         * Get unsynced sales persons.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedSalesPersons() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+
+            $salesPersons = get_terms([
+                'taxonomy'      => self::$taxonomy,
+                'hide_empty'    => FALSE,
+                'fields'        => 'ids',
+                'meta_query'    => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+
+            return $salesPersons;
+        }
+
+        /**
+         * Delete sales person.
+         * 
+         * @param   int     $salesPerson        Sales person ID.
+         * @since   1.0.0
+         */
+        public static function deleteSalesPerson($salesPerson) {
+            wp_delete_term($salesPerson, self::$taxonomy);
+
+            Wooccredo::addLog('Sales Person : '. $salesPerson .' deleted.');
         }
     }
 

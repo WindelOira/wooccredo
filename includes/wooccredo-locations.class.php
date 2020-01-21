@@ -49,9 +49,10 @@ if( !class_exists('Wooccredo_Locations') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
         }
 
         /**
@@ -103,9 +104,9 @@ if( !class_exists('Wooccredo_Locations') ) :
             if( !is_wp_error($term) ) :
                 update_term_meta($term['term_id'], 'sync_started', get_option('wc_wooccredo_sync_started'));
                 update_term_meta($term['term_id'], 'location_code', $code);
-            endif;
 
-            Wooccredo::addLog('Location : '. $name .' synced');
+                Wooccredo::addLog('Location : '. $name .' synced.');
+            endif;
         }
 
         /**
@@ -129,9 +130,48 @@ if( !class_exists('Wooccredo_Locations') ) :
                     'Content-Type: application/json'
                 ]
             ];
-            $results = wp_remote_get($url, $args);
+            $request = wp_remote_get($url, $args);
+            $response = json_decode(wp_remote_retrieve_body($request), TRUE);
 
-            return !is_wp_error($results) && ( is_array($results) && !isset($results['body']['error']) ) ? json_decode($results['body'], TRUE) : FALSE;
+            return !is_wp_error($response) && !isset($response['error']) ? $response : FALSE;
+        }
+
+        /**
+         * Get unsynced locations.
+         * 
+         * @return  array
+         * @since   1.0.0
+         */
+        public static function getUnsyncedLocations() {
+            $syncStarted = get_option('wc_wooccredo_sync_started');
+
+            $locations = get_terms([
+                'taxonomy'      => self::$taxonomy,
+                'hide_empty'    => FALSE,
+                'fields'        => 'ids',
+                'meta_query'    => [
+                    'relation'      => 'AND',
+                    [
+                        'key'       => 'sync_started',
+                        'value'     => $syncStarted,
+                        'compare'   => '<'
+                    ]
+                ]
+            ]);
+
+            return $locations;
+        }
+
+        /**
+         * Delete location.
+         * 
+         * @param   int     $location       Location ID.
+         * @since   1.0.0
+         */
+        public static function deleteLocation($location) {
+            wp_delete_term($location, self::$taxonomy);
+
+            Wooccredo::addLog('Location : '. $location .' deleted.');
         }
     }
 
