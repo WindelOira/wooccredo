@@ -334,19 +334,19 @@ if( !class_exists('Wooccredo_Admin_Settings') ) :
                 update_option('wc_wooccredo_synced', TRUE);
 
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('invoices', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('invoices', 'processing', 'processing', TRUE);
                 // Update customers sync status
-                Wooccredo::updateSyncStatus('customers', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('customers', 'processing', 'processing', TRUE);
                 // Update sales persons sync status
-                Wooccredo::updateSyncStatus('sales_persons', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('sales_persons', 'processing', 'processing', TRUE);
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('sales_areas', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('sales_areas', 'processing', 'processing', TRUE);
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('locations', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('locations', 'processing', 'processing', TRUE);
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('branches', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('branches', 'processing', 'processing', TRUE);
                 // Update invoices sync status
-                Wooccredo::updateSyncStatus('departments', 'processing', 'processing');
+                Wooccredo::updateSyncStatus('departments', 'processing', 'processing', TRUE);
                 
                 if( !Wooccredo_Invoices::isSynced() ) :
                     update_option('wc_wooccredo_invoices_synced', TRUE);

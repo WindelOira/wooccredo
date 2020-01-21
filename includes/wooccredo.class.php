@@ -136,10 +136,12 @@ if( !class_exists('Wooccredo') ) :
          * @param   string  $status     Status.
          * @since   1.0.0
          */
-        public static function updateSyncStatus($type, $status, $customStatus = '') {
+        public static function updateSyncStatus($type, $status, $customStatus = '', $doLog = FALSE) {
             update_option('wc_wooccredo_'. $type .'_sync_status', $status);
             
-            self::addLog(ucfirst(str_replace('_', ' ', $type)) .' sync '. $customStatus);
+            if( $doLog ) :
+                self::addLog(ucfirst(str_replace('_', ' ', $type)) .' sync '. $customStatus);
+            endif;
         }
         
         /**
